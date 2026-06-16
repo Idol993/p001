@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useDataStore } from '../store/dataStore';
-import { equipment, equipmentTypes, departments, users, getEquipmentTypeName, getDepartmentName, getUserName, monthlyReports } from '../data/mockData';
+import { equipmentTypes, departments, users, getEquipmentTypeName, getDepartmentName, getUserName, monthlyReports } from '../data/mockData';
 import { BarChart3, Download, Filter, Calendar, TrendingUp, Package } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, Area } from 'recharts';
 import * as XLSX from 'xlsx';
 
 export default function Reports() {
-  const { requests, borrows, repairs } = useDataStore();
+  const { requests, borrows, repairs, equipment } = useDataStore();
   
   const [filters, setFilters] = useState({
     departmentId: '',
@@ -16,8 +16,41 @@ export default function Reports() {
     endDate: '',
   });
 
+  const filteredEquipment = equipment.filter(e => {
+    if (filters.departmentId && e.departmentId !== filters.departmentId) return false;
+    if (filters.userId && e.ownerId !== filters.userId) return false;
+    if (filters.equipmentTypeId && e.typeId !== filters.equipmentTypeId) return false;
+    if (filters.startDate && e.purchaseDate < filters.startDate) return false;
+    if (filters.endDate && e.purchaseDate > filters.endDate) return false;
+    return true;
+  });
+
+  const filteredRequests = requests.filter(r => {
+    const requester = users.find(u => u.id === r.userId);
+    if (filters.departmentId && requester?.departmentId !== filters.departmentId) return false;
+    if (filters.userId && r.userId !== filters.userId) return false;
+    if (filters.equipmentTypeId && r.equipmentTypeId !== filters.equipmentTypeId) return false;
+    if (filters.startDate && r.createdAt < filters.startDate) return false;
+    if (filters.endDate && r.createdAt > filters.endDate) return false;
+    return true;
+  });
+
+  const filteredBorrows = borrows.filter(b => {
+    const borrower = users.find(u => u.id === b.userId);
+    if (filters.departmentId && borrower?.departmentId !== filters.departmentId) return false;
+    if (filters.userId && b.userId !== filters.userId) return false;
+    return true;
+  });
+
+  const filteredRepairs = repairs.filter(r => {
+    const requester = users.find(u => u.id === r.userId);
+    if (filters.departmentId && requester?.departmentId !== filters.departmentId) return false;
+    if (filters.userId && r.userId !== filters.userId) return false;
+    return true;
+  });
+
   const handleExport = () => {
-    const exportData = equipment.map(e => ({
+    const exportData = filteredEquipment.map(e => ({
       '设备名称': getEquipmentTypeName(e.typeId),
       '序列号': e.serialNumber,
       '状态': e.status === 'in_stock' ? '库存中' : e.status === 'assigned' ? '已分配' : e.status === 'borrowed' ? '借用中' : e.status === 'repairing' ? '维修中' : '已报废',
@@ -34,24 +67,23 @@ export default function Reports() {
     XLSX.writeFile(workbook, `设备资产报表_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const generateMonthlyReport = () => {
-    return monthlyReports;
-  };
-
   const getTotalAssetValue = () => {
-    return equipment.reduce((sum, e) => sum + e.purchasePrice, 0);
+    return filteredEquipment.reduce((sum, e) => sum + e.purchasePrice, 0);
   };
 
   const getDepartmentAssetValue = () => {
-    return departments.map(d => ({
-      departmentName: d.name,
-      value: equipment
-        .filter(e => e.departmentId === d.id)
-        .reduce((sum, e) => sum + e.purchasePrice, 0),
-    }));
+    return departments
+      .filter(d => !filters.departmentId || d.id === filters.departmentId)
+      .map(d => ({
+        departmentName: d.name,
+        value: filteredEquipment
+          .filter(e => e.departmentId === d.id)
+          .reduce((sum, e) => sum + e.purchasePrice, 0),
+      }))
+      .filter(d => d.value > 0);
   };
 
-  const reportData = generateMonthlyReport();
+  const reportData = monthlyReports;
   const departmentValueData = getDepartmentAssetValue();
 
   return (
@@ -131,6 +163,12 @@ export default function Reports() {
             />
           </div>
         </div>
+        <button
+          onClick={() => setFilters({ departmentId: '', userId: '', equipmentTypeId: '', startDate: '', endDate: '' })}
+          className="mt-4 text-gray-500 hover:text-gray-700 text-sm"
+        >
+          清空筛选条件
+        </button>
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -148,8 +186,8 @@ export default function Reports() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">本月申领</p>
-              <p className="text-2xl font-bold text-green-600 mt-1">{requests.length}</p>
+              <p className="text-sm text-gray-500">申领数量</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">{filteredRequests.length}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <Package className="w-6 h-6 text-green-600" />
@@ -159,8 +197,8 @@ export default function Reports() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">本月借用</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{borrows.length}</p>
+              <p className="text-sm text-gray-500">借用数量</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">{filteredBorrows.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <BarChart3 className="w-6 h-6 text-blue-600" />
@@ -170,8 +208,8 @@ export default function Reports() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">本月报修</p>
-              <p className="text-2xl font-bold text-orange-600 mt-1">{repairs.length}</p>
+              <p className="text-sm text-gray-500">报修数量</p>
+              <p className="text-2xl font-bold text-orange-600 mt-1">{filteredRepairs.length}</p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
               <Calendar className="w-6 h-6 text-orange-600" />
@@ -211,34 +249,52 @@ export default function Reports() {
       </div>
 
       <div className="card p-6 mt-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">月度报表详情</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">设备列表</h2>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">月份</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">资产总值</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">新增采购</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">报废设备</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">平均使用年限(月)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">维修次数</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">借用次数</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">设备名称</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">序列号</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">使用人</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">部门</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">采购价格</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">采购日期</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {reportData.map((report) => (
-                <tr key={report.month} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-800">{report.month}</td>
-                  <td className="px-6 py-4 text-gray-600">¥{report.totalValue.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-gray-600">{report.newPurchases}</td>
-                  <td className="px-6 py-4 text-gray-600">{report.scrappedEquipment}</td>
-                  <td className="px-6 py-4 text-gray-600">{report.averageAge}</td>
-                  <td className="px-6 py-4 text-gray-600">{report.repairCount}</td>
-                  <td className="px-6 py-4 text-gray-600">{report.borrowCount}</td>
+              {filteredEquipment.map((e) => (
+                <tr key={e.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-800">{getEquipmentTypeName(e.typeId)}</td>
+                  <td className="px-6 py-4 text-gray-600">{e.serialNumber}</td>
+                  <td className="px-6 py-4">
+                    <span className={`badge ${
+                      e.status === 'in_stock' ? 'badge-success' :
+                      e.status === 'assigned' ? 'badge-info' :
+                      e.status === 'borrowed' ? 'badge-warning' :
+                      e.status === 'repairing' ? 'badge-warning' : 'badge-danger'
+                    }`}>
+                      {e.status === 'in_stock' ? '库存中' :
+                       e.status === 'assigned' ? '已分配' :
+                       e.status === 'borrowed' ? '借用中' :
+                       e.status === 'repairing' ? '维修中' : '已报废'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600">{e.ownerId ? getUserName(e.ownerId) : '-'}</td>
+                  <td className="px-6 py-4 text-gray-600">{e.departmentId ? getDepartmentName(e.departmentId) : '-'}</td>
+                  <td className="px-6 py-4 text-gray-600">¥{e.purchasePrice.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-gray-600">{e.purchaseDate}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {filteredEquipment.length === 0 && (
+            <div className="p-8 text-center text-gray-500">
+              <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>没有符合条件的设备</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

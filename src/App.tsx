@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
+import { UserRole } from "./types";
 import Login from "./pages/Login";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
@@ -18,6 +19,29 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+  return <>{children}</>;
+}
+
+function PermissionRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole: UserRole }) {
+  const { user, getPermissionLevel } = useAuthStore();
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const permissionLevels: Record<UserRole, number> = {
+    employee: 1,
+    department_admin: 2,
+    it_staff: 3,
+    admin: 4,
+  };
+
+  const userLevel = permissionLevels[user.role];
+  const requiredLevel = permissionLevels[requiredRole];
+
+  if (userLevel < requiredLevel) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -56,57 +80,71 @@ export default function App() {
         
         <Route path="/inventory" element={
           <ProtectedRoute>
-            <Layout>
-              <Inventory />
-            </Layout>
+            <PermissionRoute requiredRole="it_staff">
+              <Layout>
+                <Inventory />
+              </Layout>
+            </PermissionRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/borrows" element={
           <ProtectedRoute>
-            <Layout>
-              <Borrows />
-            </Layout>
+            <PermissionRoute requiredRole="department_admin">
+              <Layout>
+                <Borrows />
+              </Layout>
+            </PermissionRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/repairs" element={
           <ProtectedRoute>
-            <Layout>
-              <Repairs />
-            </Layout>
+            <PermissionRoute requiredRole="department_admin">
+              <Layout>
+                <Repairs />
+              </Layout>
+            </PermissionRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/inventory-check" element={
           <ProtectedRoute>
-            <Layout>
-              <InventoryCheck />
-            </Layout>
+            <PermissionRoute requiredRole="it_staff">
+              <Layout>
+                <InventoryCheck />
+              </Layout>
+            </PermissionRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/reports" element={
           <ProtectedRoute>
-            <Layout>
-              <Reports />
-            </Layout>
+            <PermissionRoute requiredRole="it_staff">
+              <Layout>
+                <Reports />
+              </Layout>
+            </PermissionRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/logs" element={
           <ProtectedRoute>
-            <Layout>
-              <Logs />
-            </Layout>
+            <PermissionRoute requiredRole="admin">
+              <Layout>
+                <Logs />
+              </Layout>
+            </PermissionRoute>
           </ProtectedRoute>
         } />
         
         <Route path="/settings" element={
           <ProtectedRoute>
-            <Layout>
-              <Settings />
-            </Layout>
+            <PermissionRoute requiredRole="admin">
+              <Layout>
+                <Settings />
+              </Layout>
+            </PermissionRoute>
           </ProtectedRoute>
         } />
         

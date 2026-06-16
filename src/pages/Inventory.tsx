@@ -28,8 +28,7 @@ export default function Inventory() {
     e.preventDefault();
     if (!formData.serialNumber || !formData.typeId || !formData.purchaseDate) return;
 
-    const newEquipment = {
-      serialNumber: formData.serialNumber,
+    const baseEquipment = {
       typeId: formData.typeId,
       status: 'in_stock' as const,
       location: formData.location || '仓库',
@@ -38,12 +37,20 @@ export default function Inventory() {
       warrantyEnd: formData.warrantyEnd || '',
     };
 
-    addEquipment(newEquipment);
+    const quantity = formData.quantity || 1;
+    for (let i = 0; i < quantity; i++) {
+      const serialNumber = quantity === 1 
+        ? formData.serialNumber 
+        : `${formData.serialNumber}-${String(i + 1).padStart(3, '0')}`;
+      
+      addEquipment({
+        ...baseEquipment,
+        serialNumber,
+      });
 
-    if (formData.quantity > 0) {
       addInventory({
-        equipmentId: `e${Date.now()}`,
-        quantity: formData.quantity,
+        equipmentId: `e${Date.now()}-${i}`,
+        quantity: 1,
         location: formData.location || '仓库',
       });
     }

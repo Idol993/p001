@@ -6,7 +6,7 @@ import { Plus, FileText, CheckCircle, XCircle, Clock, AlertTriangle, ArrowRight,
 
 export default function Requests() {
   const { user, hasPermission } = useAuthStore();
-  const { requests, approvals, addRequest, updateRequestStatus, addApproval, updateApproval } = useDataStore();
+  const { requests, approvals, addRequest, addApproval, handleApprovalAction } = useDataStore();
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -37,7 +37,7 @@ export default function Requests() {
     const totalAmount = equipmentType.price * formData.quantity;
     const needsDirectorApproval = totalAmount > getApprovalThreshold();
 
-    addRequest({
+    const { requestId } = addRequest({
       userId: user!.id,
       equipmentTypeId: formData.equipmentTypeId,
       quantity: formData.quantity,
@@ -49,7 +49,7 @@ export default function Requests() {
     const departmentAdmin = users.find(u => u.role === 'department_admin' && u.departmentId === user?.departmentId);
     if (departmentAdmin) {
       addApproval({
-        requestId: `r${Date.now()}`,
+        requestId,
         approverId: departmentAdmin.id,
         status: 'pending',
         comment: '',
@@ -60,7 +60,7 @@ export default function Requests() {
       const admin = users.find(u => u.role === 'admin');
       if (admin) {
         addApproval({
-          requestId: `r${Date.now()}`,
+          requestId,
           approverId: admin.id,
           status: 'pending',
           comment: '',
@@ -73,33 +73,18 @@ export default function Requests() {
   };
 
   const handleApprove = () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest || !user) return;
     
-    const myApproval = approvals.find(a => a.requestId === selectedRequest.id && a.approverId === user?.id);
-    if (myApproval) {
-      updateApproval(myApproval.id, 'approved', approvalComment);
-    }
-
-    const allApprovals = approvals.filter(a => a.requestId === selectedRequest.id);
-    const allApproved = allApprovals.every(a => a.status === 'approved');
-    
-    if (allApproved) {
-      updateRequestStatus(selectedRequest.id, 'approved');
-    }
+    handleApprovalAction(selectedRequest.id, user.id, 'approved', approvalComment);
 
     setApprovalComment('');
     setShowDetailModal(false);
   };
 
   const handleReject = () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest || !user) return;
     
-    const myApproval = approvals.find(a => a.requestId === selectedRequest.id && a.approverId === user?.id);
-    if (myApproval) {
-      updateApproval(myApproval.id, 'rejected', approvalComment);
-    }
-    
-    updateRequestStatus(selectedRequest.id, 'rejected');
+    handleApprovalAction(selectedRequest.id, user.id, 'rejected', approvalComment);
     
     setApprovalComment('');
     setShowDetailModal(false);

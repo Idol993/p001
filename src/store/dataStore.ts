@@ -14,11 +14,12 @@ interface DataState {
   logs: Log[];
   businessRules: BusinessRule[];
   
-  addRequest: (request: Omit<Request, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addRequest: (request: Omit<Request, 'id' | 'createdAt' | 'updatedAt'>) => { requestId: string };
   updateRequestStatus: (id: string, status: Request['status']) => void;
   
   addApproval: (approval: Omit<Approval, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateApproval: (id: string, status: Approval['status'], comment: string) => void;
+  handleApprovalAction: (requestId: string, approverId: string, status: Approval['status'], comment: string) => void;
   
   addBorrow: (borrow: Omit<Borrow, 'id' | 'createdAt' | 'updatedAt'>) => void;
   returnBorrow: (id: string) => void;
@@ -52,13 +53,15 @@ export const useDataStore = create<DataState>((set) => ({
   
   addRequest: (request) => {
     const now = new Date().toISOString();
+    const requestId = `r${Date.now()}`;
     const newRequest: Request = {
       ...request,
-      id: `r${Date.now()}`,
+      id: requestId,
       createdAt: now,
       updatedAt: now,
     };
     set((state) => ({ requests: [...state.requests, newRequest] }));
+    return { requestId };
   },
   
   updateRequestStatus: (id, status) => {
@@ -86,6 +89,82 @@ export const useDataStore = create<DataState>((set) => ({
         a.id === id ? { ...a, status, comment, updatedAt: new Date().toISOString() } : a
       ),
     }));
+  },
+  
+  handleApprovalAction: (requestId, approverId, status, comment) => {
+    set((state) => {
+      const myApproval = state.approvals.find(a => a.requestId === requestId && a.approverId === approverId);
+      if (!myApproval) return state;
+      
+      const updatedApprovals = state.approvals.map((a) =>
+        a.id === myApproval.id ? { ...a, status, comment, updatedAt: new Date().toISOString() } : a
+      );
+      
+      const allApprovals = updatedApprovals.filter(a => a.requestId === requestId);
+      const allApproved = allApprovals.every(a => a.status === 'approved');
+      const anyRejected = allApprovals.some(a => a.status === 'rejected');
+      
+      let requestStatus = state.requests.find(r => r.id === requestId)?.status || 'pending';
+      
+      if (anyRejected) {
+        requestStatus = 'rejected';
+      } else if (allApproved) {
+        requestStatus = 'approved';
+      }
+      
+      let updatedRequests = state.requests.map((r) =>
+        r.id === requestId ? { ...r, status: requestStatus, updatedAt: new Date().toISOString() } : r
+      );
+      
+      let updatedEquipment = [...state.equipment];
+      let updatedInventory = [...state.inventory];
+      let updatedPurchaseOrders = [...state.purchaseOrders];
+      
+      if (requestStatus === 'approved') {
+        const request = updatedRequests.find(r => r.id === requestId);
+        if (request) {
+          const availableEquipment = updatedEquipment.filter(e => 
+            e.typeId === request.equipmentTypeId && e.status === 'in_stock'
+          );
+          
+          if (availableEquipment.length >= request.quantity) {
+            const requester = request.userId;
+            availableEquipment.slice(0, request.quantity).forEach((equip) => {
+              updatedEquipment = updatedEquipment.map(e => 
+                e.id === equip.id 
+                  ? { ...e, status: 'assigned' as const, ownerId: requester, updatedAt: new Date().toISOString() }
+                  : e
+              );
+            });
+            updatedRequests = updatedRequests.map((r) =>
+              r.id === requestId ? { ...r, status: 'allocated' as const, updatedAt: new Date().toISOString() } : r
+            );
+          } else {
+            const purchaseOrder: PurchaseOrder = {
+              id: `po${Date.now()}`,
+              requestId,
+              equipmentTypeId: request.equipmentTypeId,
+              quantity: request.quantity,
+              status: 'pending',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            updatedPurchaseOrders.push(purchaseOrder);
+            updatedRequests = updatedRequests.map((r) =>
+              r.id === requestId ? { ...r, status: 'purchasing' as const, updatedAt: new Date().toISOString() } : r
+            );
+          }
+        }
+      }
+      
+      return {
+        approvals: updatedApprovals,
+        requests: updatedRequests,
+        equipment: updatedEquipment,
+        inventory: updatedInventory,
+        purchaseOrders: updatedPurchaseOrders,
+      };
+    });
   },
   
   addBorrow: (borrow) => {
