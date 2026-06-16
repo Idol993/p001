@@ -96,12 +96,12 @@ export default function Login() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">测试账号示例：</p>
+            <p className="text-sm text-gray-500">测试账号（密码统一为 password）：</p>
             <div className="mt-2 space-y-1 text-xs text-gray-400">
-              <p>管理员: admin@company.com / password</p>
-              <p>IT运维: zhangsan@company.com / password</p>
-              <p>部门行政: lisi@company.com / password</p>
-              <p>普通员工: wangwu@company.com / password</p>
+              <p>管理员: admin@company.com <span className="text-green-600">[可访问采购需求]</span></p>
+              <p>IT运维: zhangsan@company.com <span className="text-green-600">[可访问采购需求]</span></p>
+              <p>部门行政: lisi@company.com [仅本部门审批]</p>
+              <p>普通员工: wangwu@company.com [仅申领和报修]</p>
             </div>
           </div>
         </div>

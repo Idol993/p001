@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Equipment, Request, Approval, Borrow, Repair, Inventory, PurchaseOrder, Log, BusinessRule, InventoryCheck, User, EquipmentType } from '../types';
-import { equipment as initialEquipment, requests as initialRequests, approvals as initialApprovals, borrows as initialBorrows, repairs as initialRepairs, inventory as initialInventory, inventoryChecks as initialInventoryChecks, purchaseOrders as initialPurchaseOrders, logs as initialLogs, businessRules as initialBusinessRules, users as initialUsers, equipmentTypes as initialEquipmentTypes } from '../data/mockData';
+import { Equipment, Request, Approval, Borrow, Repair, Inventory, PurchaseOrder, Log, BusinessRule, InventoryCheck, User, EquipmentType, Department } from '../types';
+import { equipment as initialEquipment, requests as initialRequests, approvals as initialApprovals, borrows as initialBorrows, repairs as initialRepairs, inventory as initialInventory, inventoryChecks as initialInventoryChecks, purchaseOrders as initialPurchaseOrders, logs as initialLogs, businessRules as initialBusinessRules, users as initialUsers, equipmentTypes as initialEquipmentTypes, departments as initialDepartments } from '../data/mockData';
 
 interface DataState {
   equipment: Equipment[];
@@ -15,6 +15,7 @@ interface DataState {
   businessRules: BusinessRule[];
   users: User[];
   equipmentTypes: EquipmentType[];
+  departments: Department[];
   
   addRequest: (request: Omit<Request, 'id' | 'createdAt' | 'updatedAt'>) => { requestId: string };
   updateRequestStatus: (id: string, status: Request['status']) => void;
@@ -57,6 +58,7 @@ export const useDataStore = create<DataState>((set) => ({
   businessRules: initialBusinessRules,
   users: initialUsers,
   equipmentTypes: initialEquipmentTypes,
+  departments: initialDepartments,
   
   addRequest: (request) => {
     const now = new Date().toISOString();
@@ -136,7 +138,9 @@ export const useDataStore = create<DataState>((set) => ({
           
           if (availableEquipment.length >= request.quantity) {
             const requester = request.userId;
+            const allocatedIds: string[] = [];
             availableEquipment.slice(0, request.quantity).forEach((equip) => {
+              allocatedIds.push(equip.id);
               updatedEquipment = updatedEquipment.map(e => 
                 e.id === equip.id 
                   ? { ...e, status: 'assigned' as const, ownerId: requester, updatedAt: new Date().toISOString() }
@@ -144,7 +148,7 @@ export const useDataStore = create<DataState>((set) => ({
               );
             });
             updatedRequests = updatedRequests.map((r) =>
-              r.id === requestId ? { ...r, status: 'allocated' as const, updatedAt: new Date().toISOString() } : r
+              r.id === requestId ? { ...r, status: 'allocated' as const, allocatedEquipmentIds: allocatedIds, updatedAt: new Date().toISOString() } : r
             );
           } else {
             const purchaseOrder: PurchaseOrder = {
@@ -302,9 +306,11 @@ export const useDataStore = create<DataState>((set) => ({
       const batchId = `batch${Date.now()}`;
       const now = new Date().toISOString();
       const equipmentType = state.equipmentTypes?.find(et => et.id === purchaseOrder.equipmentTypeId);
+      const requester = state.users?.find(u => u.id === request.userId);
       
       const newEquipmentList: Equipment[] = [];
       const newInventoryList: Inventory[] = [];
+      const allocatedEquipmentIds: string[] = [];
       
       for (let i = 0; i < purchaseOrder.quantity; i++) {
         const equipmentId = `e${Date.now()}-${i}`;
@@ -312,13 +318,17 @@ export const useDataStore = create<DataState>((set) => ({
           ? `${equipmentType.name}-${Date.now()}-${String(i + 1).padStart(3, '0')}`
           : `EQ-${Date.now()}-${String(i + 1).padStart(3, '0')}`;
         
+        allocatedEquipmentIds.push(equipmentId);
+        
         newEquipmentList.push({
           id: equipmentId,
           serialNumber,
           typeId: purchaseOrder.equipmentTypeId,
           batchId,
-          status: 'in_stock' as const,
-          location: '仓库',
+          status: 'assigned' as const,
+          ownerId: request.userId,
+          departmentId: requester?.departmentId,
+          location: `${state.departments?.find(d => d.id === requester?.departmentId)?.name || ''}工位`,
           purchaseDate: now,
           purchasePrice: equipmentType?.price || purchaseOrder.budgetAmount / purchaseOrder.quantity,
           warrantyEnd: '',
@@ -339,27 +349,14 @@ export const useDataStore = create<DataState>((set) => ({
       const updatedEquipment = [...state.equipment, ...newEquipmentList];
       const updatedInventory = [...state.inventory, ...newInventoryList];
       
-      const availableEquipment = updatedEquipment.filter(e => 
-        e.typeId === purchaseOrder.equipmentTypeId && e.status === 'in_stock' && !e.ownerId
+      const updatedRequests = state.requests.map((r) =>
+        r.id === request.id 
+          ? { ...r, status: 'allocated' as const, allocatedEquipmentIds, updatedAt: now } 
+          : r
       );
-      
-      let updatedRequests = state.requests.map((r) =>
-        r.id === request.id ? { ...r, status: 'allocated' as const, updatedAt: now } : r
-      );
-      
-      let finalUpdatedEquipment = updatedEquipment;
-      if (availableEquipment.length >= request.quantity) {
-        availableEquipment.slice(0, request.quantity).forEach((equip) => {
-          finalUpdatedEquipment = finalUpdatedEquipment.map(e => 
-            e.id === equip.id 
-              ? { ...e, status: 'assigned' as const, ownerId: request.userId, updatedAt: now }
-              : e
-          );
-        });
-      }
       
       return {
-        equipment: finalUpdatedEquipment,
+        equipment: updatedEquipment,
         inventory: updatedInventory,
         requests: updatedRequests,
         purchaseOrders: state.purchaseOrders.map((po) =>

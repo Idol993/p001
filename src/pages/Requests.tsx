@@ -357,21 +357,24 @@ export default function Requests() {
                 </h3>
                 {selectedRequest.status === 'allocated' && (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600">已从库存分配以下设备：</p>
+                    <p className="text-sm text-gray-600">已分配以下设备：</p>
                     <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      {equipment.filter(e => 
-                        e.ownerId === selectedRequest.userId && 
-                        e.typeId === selectedRequest.equipmentTypeId &&
-                        e.status === 'assigned'
-                      ).map((equip) => (
-                        <div key={equip.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
-                          <div>
-                            <p className="font-medium text-gray-800">{equip.serialNumber}</p>
-                            <p className="text-xs text-gray-500">{getEquipmentTypeName(equip.typeId)}</p>
-                          </div>
-                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">已分配</span>
-                        </div>
-                      ))}
+                      {selectedRequest.allocatedEquipmentIds && selectedRequest.allocatedEquipmentIds.length > 0 ? (
+                        selectedRequest.allocatedEquipmentIds.map((equipId) => {
+                          const equip = equipment.find(e => e.id === equipId);
+                          return equip ? (
+                            <div key={equip.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                              <div>
+                                <p className="font-medium text-gray-800">{equip.serialNumber}</p>
+                                <p className="text-xs text-gray-500">{getEquipmentTypeName(equip.typeId)}</p>
+                              </div>
+                              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">已分配</span>
+                            </div>
+                          ) : null;
+                        })
+                      ) : (
+                        <p className="text-sm text-gray-500 text-center py-2">未找到分配的设备记录</p>
+                      )}
                     </div>
                   </div>
                 )}

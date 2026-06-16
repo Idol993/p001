@@ -22,9 +22,20 @@ export default function Inventory() {
     quantity: 1,
   });
   const [assignUserId, setAssignUserId] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const inStockEquipment = equipment.filter(e => e.status === 'in_stock');
-  const assignedEquipment = equipment.filter(e => e.status === 'assigned');
+  const statusTabs = [
+    { key: 'all', label: '全部', count: equipment.length },
+    { key: 'in_stock', label: '库存中', count: equipment.filter(e => e.status === 'in_stock').length },
+    { key: 'assigned', label: '已分配', count: equipment.filter(e => e.status === 'assigned').length },
+    { key: 'borrowed', label: '借用中', count: equipment.filter(e => e.status === 'borrowed').length },
+    { key: 'repairing', label: '维修中', count: equipment.filter(e => e.status === 'repairing').length },
+    { key: 'scrapped', label: '已报废', count: equipment.filter(e => e.status === 'scrapped').length },
+  ];
+
+  const filteredEquipment = statusFilter === 'all' 
+    ? equipment 
+    : equipment.filter(e => e.status === statusFilter);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,120 +137,101 @@ export default function Inventory() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-              <Warehouse className="w-5 h-5 text-primary-600" />
-              库存设备
-            </h2>
-            <span className="badge-default">{inStockEquipment.length}件</span>
-          </div>
-          <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto scrollbar-thin">
-            {inStockEquipment.map((item) => (
-              <div key={item.id} className="p-4 hover:bg-gray-50 flex items-center justify-between">
-                <div className="flex-1 cursor-pointer" onClick={() => navigate(`/equipment/${item.id}`)}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                      <Package className="w-5 h-5 text-primary-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800">{getEquipmentTypeName(item.typeId)}</p>
-                      <p className="text-sm text-gray-500">SN: {item.serialNumber}</p>
-                    </div>
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="flex -mb-px">
+            {statusTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  statusFilter === tab.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.label}
+                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+                  statusFilter === tab.key ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto scrollbar-thin">
+          {filteredEquipment.map((item) => {
+            const owner = users.find(u => u.id === item.ownerId);
+            return (
+              <div key={item.id} className="p-4 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/equipment/${item.id}`)}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                    item.status === 'in_stock' ? 'bg-green-100' :
+                    item.status === 'assigned' ? 'bg-blue-100' :
+                    item.status === 'borrowed' ? 'bg-orange-100' :
+                    item.status === 'repairing' ? 'bg-yellow-100' : 'bg-red-100'
+                  }`}>
+                    {item.status === 'in_stock' ? <Warehouse className="w-6 h-6 text-green-600" /> :
+                     item.status === 'assigned' ? <User className="w-6 h-6 text-blue-600" /> :
+                     item.status === 'borrowed' ? <ArrowRight className="w-6 h-6 text-orange-600" /> :
+                     item.status === 'repairing' ? <Package className="w-6 h-6 text-yellow-600" /> :
+                     <Package className="w-6 h-6 text-red-600" />}
                   </div>
-                  <div className="mt-2 text-sm text-gray-500 ml-13">
-                    <div className="flex gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-800">{getEquipmentTypeName(item.typeId)}</p>
+                      <span className={`px-2 py-0.5 rounded text-xs ${getStatusColor(item.status)}`}>
+                        {getStatusLabel(item.status)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500">SN: {item.serialNumber}</p>
+                    <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                      {owner && <span>使用人: {owner.name}</span>}
+                      {item.departmentId && <span>部门: {getDepartmentName(item.departmentId)}</span>}
                       <span>价格: ¥{item.purchasePrice.toLocaleString()}</span>
                       <span>位置: {item.location}</span>
                     </div>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => navigate(`/equipment/${item.id}`)}
-                    className="text-gray-600 hover:text-gray-800 px-2 py-1 rounded bg-gray-100 text-sm"
-                    title="查看档案"
-                  >
-                    <FileText className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedEquipment(item);
-                      setShowAssignModal(true);
-                    }}
-                    className="btn-primary text-sm"
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                    分配
-                  </button>
-                </div>
-              </div>
-            ))}
-            {inStockEquipment.length === 0 && (
-              <div className="p-8 text-center text-gray-500">
-                <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>暂无库存设备</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-success" />
-              已分配设备
-            </h2>
-            <span className="badge-info">{assignedEquipment.length}件</span>
-          </div>
-          <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto scrollbar-thin">
-            {assignedEquipment.map((item) => {
-              const owner = users.find(u => u.id === item.ownerId);
-              return (
-                <div key={item.id} className="p-4 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/equipment/${item.id}`)}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <User className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800">{getEquipmentTypeName(item.typeId)}</p>
-                      <p className="text-sm text-gray-500">SN: {item.serialNumber}</p>
-                    </div>
-                    <span className={`badge ${getStatusColor(item.status)}`}>
-                      {getStatusLabel(item.status)}
-                    </span>
+                  <div className="flex gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/equipment/${item.id}`);
                       }}
-                      className="text-gray-600 hover:text-gray-800 px-2 py-1 rounded bg-gray-100 text-sm"
+                      className="text-gray-600 hover:text-gray-800 px-3 py-2 rounded bg-gray-100 text-sm flex items-center gap-1"
                       title="查看档案"
                     >
                       <FileText className="w-4 h-4" />
+                      档案
                     </button>
-                  </div>
-                  <div className="mt-2 text-sm text-gray-500">
-                    <div className="flex gap-4">
-                      <span>使用人: {owner?.name || '-'}</span>
-                      <span>部门: {getDepartmentName(item.departmentId || '')}</span>
-                    </div>
-                    <div className="flex gap-4 mt-1">
-                      <span>价格: ¥{item.purchasePrice.toLocaleString()}</span>
-                      <span>保修至: {item.warrantyEnd || '-'}</span>
-                    </div>
+                    {item.status === 'in_stock' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedEquipment(item);
+                          setShowAssignModal(true);
+                        }}
+                        className="btn-primary text-sm flex items-center gap-1"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                        分配
+                      </button>
+                    )}
                   </div>
                 </div>
-              );
-            })}
-            {assignedEquipment.length === 0 && (
-              <div className="p-8 text-center text-gray-500">
-                <CheckCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>暂无已分配设备</p>
               </div>
-            )}
-          </div>
+            );
+          })}
+          {filteredEquipment.length === 0 && (
+            <div className="p-12 text-center text-gray-500">
+              <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>暂无{statusFilter === 'all' ? '' : getStatusLabel(statusFilter)}设备</p>
+            </div>
+          )}
         </div>
       </div>
 

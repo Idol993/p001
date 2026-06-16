@@ -61,6 +61,7 @@ export interface Request {
   purpose: string;
   totalAmount: number;
   status: 'pending' | 'approved' | 'rejected' | 'allocated' | 'purchasing';
+  allocatedEquipmentIds?: string[];
   createdAt: string;
   updatedAt: string;
 }
