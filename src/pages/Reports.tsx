@@ -50,7 +50,7 @@ export default function Reports() {
   });
 
   const handleExport = () => {
-    const exportData = filteredEquipment.map(e => ({
+    const equipmentData = filteredEquipment.map(e => ({
       '设备名称': getEquipmentTypeName(e.typeId),
       '序列号': e.serialNumber,
       '状态': e.status === 'in_stock' ? '库存中' : e.status === 'assigned' ? '已分配' : e.status === 'borrowed' ? '借用中' : e.status === 'repairing' ? '维修中' : '已报废',
@@ -61,10 +61,53 @@ export default function Reports() {
       '保修截止': e.warrantyEnd || '-',
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const departmentSummary = departments
+      .filter(d => !filters.departmentId || d.id === filters.departmentId)
+      .map(d => {
+        const deptEquipment = filteredEquipment.filter(e => e.departmentId === d.id);
+        return {
+          '部门名称': d.name,
+          '设备数量': deptEquipment.length,
+          '资产总值': deptEquipment.reduce((sum, e) => sum + e.purchasePrice, 0),
+          '平均单价': deptEquipment.length > 0 ? deptEquipment.reduce((sum, e) => sum + e.purchasePrice, 0) / deptEquipment.length : 0,
+          '库存中': deptEquipment.filter(e => e.status === 'in_stock').length,
+          '已分配': deptEquipment.filter(e => e.status === 'assigned').length,
+          '借用中': deptEquipment.filter(e => e.status === 'borrowed').length,
+          '维修中': deptEquipment.filter(e => e.status === 'repairing').length,
+        };
+      })
+      .filter(d => d.设备数量 > 0);
+
+    const typeSummary = equipmentTypes
+      .filter(t => !filters.equipmentTypeId || t.id === filters.equipmentTypeId)
+      .map(t => {
+        const typeEquipment = filteredEquipment.filter(e => e.typeId === t.id);
+        return {
+          '设备类型': t.name,
+          '设备数量': typeEquipment.length,
+          '资产总值': typeEquipment.reduce((sum, e) => sum + e.purchasePrice, 0),
+          '平均单价': typeEquipment.length > 0 ? typeEquipment.reduce((sum, e) => sum + e.purchasePrice, 0) / typeEquipment.length : 0,
+          '库存中': typeEquipment.filter(e => e.status === 'in_stock').length,
+          '已分配': typeEquipment.filter(e => e.status === 'assigned').length,
+          '借用中': typeEquipment.filter(e => e.status === 'borrowed').length,
+          '维修中': typeEquipment.filter(e => e.status === 'repairing').length,
+          '参考单价': t.price,
+        };
+      })
+      .filter(t => t.设备数量 > 0);
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, '设备资产报表');
-    XLSX.writeFile(workbook, `设备资产报表_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    const equipmentSheet = XLSX.utils.json_to_sheet(equipmentData);
+    XLSX.utils.book_append_sheet(workbook, equipmentSheet, '设备明细');
+    
+    const departmentSheet = XLSX.utils.json_to_sheet(departmentSummary);
+    XLSX.utils.book_append_sheet(workbook, departmentSheet, '部门汇总');
+    
+    const typeSheet = XLSX.utils.json_to_sheet(typeSummary);
+    XLSX.utils.book_append_sheet(workbook, typeSheet, '类型汇总');
+
+    XLSX.writeFile(workbook, `资产报表_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const getTotalAssetValue = () => {

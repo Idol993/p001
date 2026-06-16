@@ -38,18 +38,23 @@ export default function Inventory() {
     };
 
     const quantity = formData.quantity || 1;
+    const batchId = `batch${Date.now()}`;
+    
     for (let i = 0; i < quantity; i++) {
       const serialNumber = quantity === 1 
         ? formData.serialNumber 
         : `${formData.serialNumber}-${String(i + 1).padStart(3, '0')}`;
       
+      const equipmentId = `e${Date.now()}-${i}`;
+      
       addEquipment({
         ...baseEquipment,
         serialNumber,
+        batchId,
       });
 
       addInventory({
-        equipmentId: `e${Date.now()}-${i}`,
+        equipmentId,
         quantity: 1,
         location: formData.location || '仓库',
       });

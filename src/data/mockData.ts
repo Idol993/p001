@@ -87,7 +87,7 @@ export const inventoryChecks: InventoryCheck[] = [
 ];
 
 export const purchaseOrders: PurchaseOrder[] = [
-  { id: 'po1', requestId: 'r5', equipmentTypeId: 'et2', quantity: 1, status: 'ordered', createdAt: '2024-06-10', updatedAt: '2024-06-10' },
+  { id: 'po1', requestId: 'r5', equipmentTypeId: 'et2', quantity: 1, budgetAmount: 8000, status: 'ordered', createdAt: '2024-06-10', updatedAt: '2024-06-10' },
 ];
 
 export const logs: Log[] = [

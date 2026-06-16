@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Equipment, Request, Approval, Borrow, Repair, Inventory, PurchaseOrder, Log, BusinessRule, InventoryCheck } from '../types';
-import { equipment as initialEquipment, requests as initialRequests, approvals as initialApprovals, borrows as initialBorrows, repairs as initialRepairs, inventory as initialInventory, inventoryChecks as initialInventoryChecks, purchaseOrders as initialPurchaseOrders, logs as initialLogs, businessRules as initialBusinessRules } from '../data/mockData';
+import { Equipment, Request, Approval, Borrow, Repair, Inventory, PurchaseOrder, Log, BusinessRule, InventoryCheck, User, EquipmentType } from '../types';
+import { equipment as initialEquipment, requests as initialRequests, approvals as initialApprovals, borrows as initialBorrows, repairs as initialRepairs, inventory as initialInventory, inventoryChecks as initialInventoryChecks, purchaseOrders as initialPurchaseOrders, logs as initialLogs, businessRules as initialBusinessRules, users as initialUsers, equipmentTypes as initialEquipmentTypes } from '../data/mockData';
 
 interface DataState {
   equipment: Equipment[];
@@ -13,6 +13,8 @@ interface DataState {
   purchaseOrders: PurchaseOrder[];
   logs: Log[];
   businessRules: BusinessRule[];
+  users: User[];
+  equipmentTypes: EquipmentType[];
   
   addRequest: (request: Omit<Request, 'id' | 'createdAt' | 'updatedAt'>) => { requestId: string };
   updateRequestStatus: (id: string, status: Request['status']) => void;
@@ -37,6 +39,9 @@ interface DataState {
   addLog: (log: Omit<Log, 'id' | 'createdAt'>) => void;
   
   updateBusinessRule: (id: string, value: number) => void;
+  
+  updatePurchaseOrderStatus: (id: string, status: PurchaseOrder['status']) => void;
+  receivePurchaseOrder: (id: string) => void;
 }
 
 export const useDataStore = create<DataState>((set) => ({
@@ -50,6 +55,8 @@ export const useDataStore = create<DataState>((set) => ({
   purchaseOrders: initialPurchaseOrders,
   logs: initialLogs,
   businessRules: initialBusinessRules,
+  users: initialUsers,
+  equipmentTypes: initialEquipmentTypes,
   
   addRequest: (request) => {
     const now = new Date().toISOString();
@@ -145,6 +152,7 @@ export const useDataStore = create<DataState>((set) => ({
               requestId,
               equipmentTypeId: request.equipmentTypeId,
               quantity: request.quantity,
+              budgetAmount: request.totalAmount,
               status: 'pending',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
@@ -273,5 +281,91 @@ export const useDataStore = create<DataState>((set) => ({
         r.id === id ? { ...r, value } : r
       ),
     }));
+  },
+  
+  updatePurchaseOrderStatus: (id, status) => {
+    set((state) => ({
+      purchaseOrders: state.purchaseOrders.map((po) =>
+        po.id === id ? { ...po, status, updatedAt: new Date().toISOString() } : po
+      ),
+    }));
+  },
+  
+  receivePurchaseOrder: (id) => {
+    set((state) => {
+      const purchaseOrder = state.purchaseOrders.find(po => po.id === id);
+      if (!purchaseOrder || purchaseOrder.status !== 'arrived') return state;
+      
+      const request = state.requests.find(r => r.id === purchaseOrder.requestId);
+      if (!request) return state;
+      
+      const batchId = `batch${Date.now()}`;
+      const now = new Date().toISOString();
+      const equipmentType = state.equipmentTypes?.find(et => et.id === purchaseOrder.equipmentTypeId);
+      
+      const newEquipmentList: Equipment[] = [];
+      const newInventoryList: Inventory[] = [];
+      
+      for (let i = 0; i < purchaseOrder.quantity; i++) {
+        const equipmentId = `e${Date.now()}-${i}`;
+        const serialNumber = equipmentType 
+          ? `${equipmentType.name}-${Date.now()}-${String(i + 1).padStart(3, '0')}`
+          : `EQ-${Date.now()}-${String(i + 1).padStart(3, '0')}`;
+        
+        newEquipmentList.push({
+          id: equipmentId,
+          serialNumber,
+          typeId: purchaseOrder.equipmentTypeId,
+          batchId,
+          status: 'in_stock' as const,
+          location: '仓库',
+          purchaseDate: now,
+          purchasePrice: equipmentType?.price || purchaseOrder.budgetAmount / purchaseOrder.quantity,
+          warrantyEnd: '',
+          createdAt: now,
+          updatedAt: now,
+        });
+        
+        newInventoryList.push({
+          id: `i${Date.now()}-${i}`,
+          equipmentId,
+          quantity: 1,
+          location: '仓库',
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      
+      const updatedEquipment = [...state.equipment, ...newEquipmentList];
+      const updatedInventory = [...state.inventory, ...newInventoryList];
+      
+      const availableEquipment = updatedEquipment.filter(e => 
+        e.typeId === purchaseOrder.equipmentTypeId && e.status === 'in_stock' && !e.ownerId
+      );
+      
+      let updatedRequests = state.requests.map((r) =>
+        r.id === request.id ? { ...r, status: 'allocated' as const, updatedAt: now } : r
+      );
+      
+      let finalUpdatedEquipment = updatedEquipment;
+      if (availableEquipment.length >= request.quantity) {
+        availableEquipment.slice(0, request.quantity).forEach((equip) => {
+          finalUpdatedEquipment = finalUpdatedEquipment.map(e => 
+            e.id === equip.id 
+              ? { ...e, status: 'assigned' as const, ownerId: request.userId, updatedAt: now }
+              : e
+          );
+        });
+      }
+      
+      return {
+        equipment: finalUpdatedEquipment,
+        inventory: updatedInventory,
+        requests: updatedRequests,
+        purchaseOrders: state.purchaseOrders.map((po) =>
+          po.id === id ? { ...po, status: 'received' as const, updatedAt: now } : po
+        ),
+      };
+    });
   },
 }));

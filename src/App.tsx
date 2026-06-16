@@ -13,6 +13,7 @@ import Reports from "./pages/Reports";
 import Logs from "./pages/Logs";
 import Settings from "./pages/Settings";
 import EquipmentDetail from "./pages/EquipmentDetail";
+import PurchaseOrders from "./pages/PurchaseOrders";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -123,6 +124,16 @@ export default function App() {
             <PermissionRoute requiredRole="it_staff">
               <Layout>
                 <Reports />
+              </Layout>
+            </PermissionRoute>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/purchase-orders" element={
+          <ProtectedRoute>
+            <PermissionRoute requiredRole="it_staff">
+              <Layout>
+                <PurchaseOrders />
               </Layout>
             </PermissionRoute>
           </ProtectedRoute>

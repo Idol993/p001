@@ -32,6 +32,7 @@ export interface Equipment {
   id: string;
   serialNumber: string;
   typeId: string;
+  batchId?: string;
   status: 'in_stock' | 'assigned' | 'borrowed' | 'repairing' | 'scrapped';
   location: string;
   ownerId?: string;
@@ -114,7 +115,8 @@ export interface PurchaseOrder {
   requestId: string;
   equipmentTypeId: string;
   quantity: number;
-  status: 'pending' | 'ordered' | 'received';
+  budgetAmount: number;
+  status: 'pending' | 'purchasing' | 'ordered' | 'arrived' | 'received';
   createdAt: string;
   updatedAt: string;
 }

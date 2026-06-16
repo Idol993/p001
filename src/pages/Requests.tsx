@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useDataStore } from '../store/dataStore';
 import { equipmentTypes, users, getUserName, getEquipmentTypeName, getDepartmentName, getApprovalThreshold } from '../data/mockData';
-import { Plus, FileText, CheckCircle, XCircle, Clock, AlertTriangle, ArrowRight, User } from 'lucide-react';
+import { Plus, FileText, CheckCircle, XCircle, Clock, AlertTriangle, ArrowRight, User, Package, ShoppingCart } from 'lucide-react';
 
 export default function Requests() {
   const { user, hasPermission } = useAuthStore();
-  const { requests, approvals, addRequest, addApproval, handleApprovalAction } = useDataStore();
+  const { requests, approvals, equipment, purchaseOrders, addRequest, addApproval, handleApprovalAction } = useDataStore();
   
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -348,6 +348,78 @@ export default function Requests() {
                 ))}
               </div>
             </div>
+
+            {(selectedRequest.status === 'allocated' || selectedRequest.status === 'purchasing') && (
+              <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  {selectedRequest.status === 'allocated' ? <Package className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
+                  自动处理结果
+                </h3>
+                {selectedRequest.status === 'allocated' && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">已从库存分配以下设备：</p>
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      {equipment.filter(e => 
+                        e.ownerId === selectedRequest.userId && 
+                        e.typeId === selectedRequest.equipmentTypeId &&
+                        e.status === 'assigned'
+                      ).map((equip) => (
+                        <div key={equip.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                          <div>
+                            <p className="font-medium text-gray-800">{equip.serialNumber}</p>
+                            <p className="text-xs text-gray-500">{getEquipmentTypeName(equip.typeId)}</p>
+                          </div>
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">已分配</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedRequest.status === 'purchasing' && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-600">库存不足，已生成采购需求：</p>
+                    {purchaseOrders.filter(po => po.requestId === selectedRequest.id).map((po) => (
+                      <div key={po.id} className="bg-white rounded-lg p-3 border border-gray-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-medium text-gray-800">采购单号：{po.id}</p>
+                            <p className="text-sm text-gray-600">设备类型：{getEquipmentTypeName(po.equipmentTypeId)}</p>
+                            <p className="text-sm text-gray-600">数量：{po.quantity}台</p>
+                            <p className="text-sm text-gray-600">预算：¥{po.budgetAmount.toLocaleString()}</p>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            po.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            po.status === 'purchasing' ? 'bg-blue-100 text-blue-800' :
+                            po.status === 'ordered' ? 'bg-purple-100 text-purple-800' :
+                            po.status === 'arrived' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {po.status === 'pending' ? '待处理' :
+                             po.status === 'purchasing' ? '采购中' :
+                             po.status === 'ordered' ? '已下单' :
+                             po.status === 'arrived' ? '已到货' : '已入库'}
+                          </span>
+                        </div>
+                        <div className="mt-3">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>采购进度</span>
+                            <span>{po.status === 'pending' ? '10%' : po.status === 'purchasing' ? '30%' : po.status === 'ordered' ? '60%' : po.status === 'arrived' ? '80%' : '100%'}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className={`h-2 rounded-full ${
+                              po.status === 'pending' ? 'bg-yellow-500' :
+                              po.status === 'purchasing' ? 'bg-blue-500' :
+                              po.status === 'ordered' ? 'bg-purple-500' :
+                              po.status === 'arrived' ? 'bg-green-500' : 'bg-gray-500'
+                            }`} style={{ width: po.status === 'pending' ? '10%' : po.status === 'purchasing' ? '30%' : po.status === 'ordered' ? '60%' : po.status === 'arrived' ? '80%' : '100%' }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {canApprove(selectedRequest) && (
               <div>

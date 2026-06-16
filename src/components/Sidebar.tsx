@@ -11,7 +11,8 @@ import {
   BarChart3, 
   Settings, 
   LogOut,
-  User
+  User,
+  ShoppingCart
 } from 'lucide-react';
 import { getDepartmentName } from '../data/mockData';
 
@@ -19,6 +20,7 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: '仪表盘' },
   { path: '/requests', icon: Monitor, label: '设备申领' },
   { path: '/inventory', icon: Package, label: '库存管理' },
+  { path: '/purchase-orders', icon: ShoppingCart, label: '采购需求' },
   { path: '/borrows', icon: ArrowRightLeft, label: '借用管理' },
   { path: '/repairs', icon: Wrench, label: '报修管理' },
   { path: '/inventory-check', icon: ClipboardList, label: '资产盘点' },
@@ -43,6 +45,7 @@ export default function Sidebar() {
       '/': 1,
       '/requests': 1,
       '/inventory': 3,
+      '/purchase-orders': 3,
       '/borrows': 2,
       '/repairs': 2,
       '/inventory-check': 3,
