@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDataStore } from '../store/dataStore';
 import { equipmentTypes, getEquipmentTypeName, getDepartmentName } from '../data/mockData';
-import { Plus, Package, Warehouse, CheckCircle, ArrowRight, XCircle, User } from 'lucide-react';
+import { Plus, Package, Warehouse, CheckCircle, ArrowRight, XCircle, User, FileText } from 'lucide-react';
 import { users } from '../data/mockData';
 
 export default function Inventory() {
+  const navigate = useNavigate();
   const { equipment, inventory, addEquipment, updateEquipment, addInventory, updateInventory } = useDataStore();
   
   const [showModal, setShowModal] = useState(false);
@@ -136,7 +138,7 @@ export default function Inventory() {
           <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto scrollbar-thin">
             {inStockEquipment.map((item) => (
               <div key={item.id} className="p-4 hover:bg-gray-50 flex items-center justify-between">
-                <div className="flex-1">
+                <div className="flex-1 cursor-pointer" onClick={() => navigate(`/equipment/${item.id}`)}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
                       <Package className="w-5 h-5 text-primary-600" />
@@ -153,16 +155,25 @@ export default function Inventory() {
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedEquipment(item);
-                    setShowAssignModal(true);
-                  }}
-                  className="btn-primary text-sm"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                  分配
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate(`/equipment/${item.id}`)}
+                    className="text-gray-600 hover:text-gray-800 px-2 py-1 rounded bg-gray-100 text-sm"
+                    title="查看档案"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedEquipment(item);
+                      setShowAssignModal(true);
+                    }}
+                    className="btn-primary text-sm"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    分配
+                  </button>
+                </div>
               </div>
             ))}
             {inStockEquipment.length === 0 && (
@@ -186,7 +197,7 @@ export default function Inventory() {
             {assignedEquipment.map((item) => {
               const owner = users.find(u => u.id === item.ownerId);
               return (
-                <div key={item.id} className="p-4 hover:bg-gray-50">
+                <div key={item.id} className="p-4 hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/equipment/${item.id}`)}>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                       <User className="w-5 h-5 text-blue-600" />
@@ -198,6 +209,16 @@ export default function Inventory() {
                     <span className={`badge ${getStatusColor(item.status)}`}>
                       {getStatusLabel(item.status)}
                     </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/equipment/${item.id}`);
+                      }}
+                      className="text-gray-600 hover:text-gray-800 px-2 py-1 rounded bg-gray-100 text-sm"
+                      title="查看档案"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
                   </div>
                   <div className="mt-2 text-sm text-gray-500">
                     <div className="flex gap-4">
